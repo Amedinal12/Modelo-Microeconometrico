@@ -1,0 +1,8 @@
+Numero,variable,etiqueta,unidades
+6,estsocio,estrato socio economico,"categorica, con niveles de 1 a 4"
+11,sexojefe,sexo del jefe de familia ,categorica con niveles 0 o 1
+12,educajefe,educacion formal del jefe de familia,categorica con niveles 1 a 11
+13,totinteg,numero de integrantes del hogar,numerica 
+14,ingcor,ingreso corriente trimestral de la unidad de observacion,numerica
+58,gastomon,gasto corriente trimestral de la unidad de observacion,numerica
+80,vivienda,"gasto en vivienda trimestral, se incluye renta o pago de hipoteca, gasto en servicios de reconstruccion y en agua",numerica

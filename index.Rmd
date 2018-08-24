@@ -1,0 +1,26 @@
+--- 
+title: "¿Cuáles son los factores principales y en que proporción intervienen en el gasto de vivienda de una familia mexicana?"
+author: "Act. Andrés Antonio Medina Landeros"
+date: "`r Sys.Date()`"
+site: bookdown::bookdown_site
+output: bookdown::gitbook
+documentclass: book
+bibliography: [library.bib,book.bib]
+biblio-style: apalike
+link-citations: yes
+github-repo: AmedinalUrbi/Modelo-Microeconometrico
+description: "Modelo econométrico para predecir el gasto en vivienda de una familia mexicana"
+---
+
+```{r eval=FALSE}
+install.packages("bookdown")
+```
+
+```{r include=FALSE}
+
+knitr::write_bib(c(
+  .packages(), 'bookdown', 'knitr', 'rmarkdown'
+), 'packages.bib')
+```
+
+

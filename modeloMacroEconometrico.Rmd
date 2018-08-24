@@ -1,0 +1,649 @@
+
+```{r,echo=FALSE,eval=TRUE, cache = TRUE,warning=FALSE,include = FALSE}
+install.packages("readr",repos = "http://cran.us.r-project.org")
+install.packages("dplyr",repos = "http://cran.us.r-project.org")
+install.packages("ggplot2",repos = "http://cran.us.r-project.org")
+install.packages("foreign",repos = "http://cran.us.r-project.org")
+install.packages("purrr",repos = "http://cran.us.r-project.org")
+install.packages("RColorBrewer",repos = "http://cran.us.r-project.org")
+install.packages("broom",repos = "http://cran.us.r-project.org")
+install.packages("tseries",repos = "http://cran.us.r-project.org")
+install.packages("car",repos = "http://cran.us.r-project.org",type = "binary")
+install.packages("lmtest",repos = "http://cran.us.r-project.org")
+install.packages("plm",repos = "http://cran.us.r-project.org")
+install.packages("sandwich", repos = "http://cran.us.r-project.org")
+install.packages("qwraps2", repos = "http://cran.us.r-project.org")
+install.packages("cowplot", repos = "http://cran.us.r-project.org")
+library("readr")
+library("dplyr")
+library("ggplot2")
+library("foreign")
+library("purrr")
+library("RColorBrewer")
+library("broom")
+library("tseries")
+library("car")
+library("lmtest")
+library("plm")
+library("sandwich")
+library("qwraps2")
+library("cowplot")
+library("knitr")
+```
+
+```{r,echo=FALSE,include=FALSE, cache = TRUE,warning=FALSE}
+options(qwraps2_markup = "markdown")
+theme_set(theme_gray())
+memory.limit(size=40000)
+concentradoHogar<-read_csv("concentradohogar.csv")
+
+```
+
+```{r,echo=FALSE, cache = TRUE,warning=FALSE}
+
+datos<-concentradoHogar%>%select("est_socio","sexo_jefe","edad_jefe","educa_jefe","tot_integ","ing_cor","gasto_mon","vivienda")%>%na.omit()
+n<-nrow(datos)
+datos$sexo_jefe[datos$sexo_jefe==2]<-0
+datos$sexo_jefe<-as.factor(datos$sexo_jefe)
+datos$educa_jefe<-as.factor(datos$educa_jefe)
+datos$est_socio<-as.factor(datos$est_socio)
+datos<-tbl_df(datos)
+
+```
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+set.seed(1)
+n_muest<-1000
+muestra<-sample(1:n,n_muest,replace = FALSE)
+datos2<-datos[muestra,]
+datos2<-datos2%>%filter(log(vivienda) > 0)
+n_muest<-nrow(datos2)
+```
+
+# Abstracto 
+Esta investigación tiene como objetivo conocer y cuantificar el impacto que tienen en el gasto en vivienda los factores mas relevantes del entorno socio-económico y demográfico de las familias mexicanas. Como resultado de este estudio encontré patrones linealmente positivos pero marginalmente decrecientes del gasto mensual y la edad del jefe de familia con respecto del gasto en vivienda. Encontré que el sexo del jefe de familia tambien afecta los patrones de consumo en vivienda, el estudio demuestra que los hombres gastan menos dinero en este concepto que las mujeres. Por ultimo, descubrí que existe una relación lineal positiva entre el estrato socio-economico al que pertenece la unidad de análisis y su patrón de consumo de vivienda, este efecto positivo puede ser descrito como que, entre mas alto el estrato al que pertenece, mas dinero destina esa familia a la vivienda.
+La metodología que implemente en este estudio es la construcción de un modelo de regresión lineal múltiple generalizado. 
+
+# Introducción  
+La teoria económica nos ha presentado un marco teórico en el cual se incluye la forma en la que el mercado de vivienda contribuye a propulsar el dinamismo económico.
+Algunas de las formas mas importantes en las que la vivienda logra impactar a los mexicanos son, por ejemplo la derrama económica que genera en otros sectores de la economia,  y en la medida en que permite el desarrollo de otros aspectos del ser humano que le permiten mejorar sus condiciones socio-economicas, sin embargo la industria inmobiliaria, por diversos factores ha sido descrita como inflexible e inamovible por lo que en muchos mercados, el sector no ha podido generar soluciones de valor para su consumidor final. 
+Ha llegado el momento de implantarle un nuevo dinamismo a la industria mediante la implementación de la inteligencia de negocios.
+
+Muchos de los procesos que URBI utiliza para prospectar y cuantificar sus mercados meta y el valor de estos son obsoletos, apoyados en hipótesis que carecen de sustento frente a una realidad mexicana constanemente cambiante, estas hipótesis deben ser puestas a prueba y contrastadas con datos para encontrar nuevas ideas y soluciones que entreguen valor a nuestrso clientes. 
+
+El enfoque que presento en este trabajo esta centrado en la familia mexicana como unidad de análisis, quiero conocer y cuantificar los patrones de consumo en este bien, esto, con el proposito de que URBI, como empresa tenga un panorama general, apoyado en datos sobre quienes son las personas que destinan sus recursos en nuestras soluciones integrales de vivienda, de tal forma que URBI  pueda adaptar su gama de productos y servicios a la realidad de nuestros clientes.
+
+Es claro que la aproximación que utilicé en la presente investigación no es del tipo exhaustivo, sino mas bien quiero presentarles mis hallazgos para que en conjunto tomemos conciencia del importante poder descriptivo y predictivo que nos provee esta clase de modelación estadística con miras a que en un futuro, mejoremos nuestros procesos de interacción con los clientes, procesos en los cuales recabemos, almacenemos y procesemos de forma valiosa la informacion.
+
+# Datos
+los datos utilizados en este proyecto son los proporcionados por la Encuesta Nacional Ingresos y Gastos de los hogares en su edicion 2016 (ENIGH 2016). El objetivo de esta encuesta es el de proporcionar un panorama estadístico del comportamiento de los ingresos y gastos de los hogares en cuanto a su monto, procedencia y distribución, adicionalmente la encuesta ofrece características ocupacionales y socio-demográficas de la infraestructura de la vivienda y el equipamiento del hogar. 
+El periodo de levantamiento de la encuesta fue del 21 de Agosto del 2016 al 28 de noviembre del 2016.
+La cobertura geográfica de la encuesta es a nivel nacional. 
+
+Para conformar la base de datos de la investigación utilicé el archivo concentradohogar.csv que se encuentra disponible en la pestaña de microdatos en el sitio web de la [ENIGH](http://www.beta.inegi.org.mx/proyectos/enchogares/regulares/enigh/nc/2016/) 
+
+## Descripción de las variables
+A continuación, presento una tabla de las variables que conforman la base de datos utilizada en este análisis, el número significa la columna en la que se encuentran en el archivo, su nombre, su etiqueta, su categoría (si es numérica o categórica) y en caso de ser categórica el número de niveles que la conforman.
+El archivo se compone de 70,311 unidades observacionales, de las cuales seleccioné 1000 mediante un muestreo aleatorio y omití de la base aquellos cuyo gasto en vivienda reportado es del orden de centavos, ya que estos datos no tienen ningun sentido económico ni financiero y claramente son errores de captura.
+Gracias al procedimiento anteriormente mencionado me quedo con 969 unidades para realizar el análisis.
+
+```{r,echo = FALSE,results='asis', message = FALSE, cache = TRUE,warning=FALSE}
+tabla_variables<-read_csv("tabla_variables.csv", col_names = TRUE)
+kable(tabla_variables, caption = "Tabla de variables a utilizar.")
+```
+
+```{r,echo= FALSE, results= 'asis', message = FALSE, cache = TRUE,warning=FALSE}
+sexo_jefe_var<-read_csv("sexo_jefe_var.csv",col_names = TRUE)
+est_socio_var<-read_csv("est_socio_var.csv",col_names = TRUE)
+educa_jefe_var<-read_csv("educa_jefe_var.csv",col_names = TRUE)
+kable(sexo_jefe_var,caption = " niveles de la variable categorica sexo del jefe de familia.")
+
+kable(est_socio_var,caption = " niveles de la variable categorica estrato socio-economico.")
+kable(educa_jefe_var,caption =" niveles de la variable categorica educacion formal del jefe de familia.") 
+```
+
+# Análisis exploratorio de los datos y estadística descripitiva
+El análisis exploratorio de los datos consiste en descubrir las relaciones entre las variables propuestas para el modelo, para que así se puedan presentar de forma correcta. 
+Tambien es útil para conocer la estructura de los datos y conocer su consistencia. 
+La forma en la que presento esta sección es primero, con estadísticas descriptivas de las variables numéricas, entre las cuales se incluyen media, moda, desviación estándar, cuartiles, mínimo y máximo. 
+A continuación prosigo con gráficas de estadística univariada, entre los que se incluyen, diagramas de caja y brazos, histogramas y gráficos de densidad esto con el propósito de conocer la forma, el sesgo y los parámetros de localización de la distribución de estas variables.
+Despues exploro algunas relaciones multivariadas entre distintos parámetros categóricos y numéricos, esto con el fin de conocer las características de la población. 
+
+## Estadística Descriptiva
+```{r,echo = FALSE,results = 'asis', cache = TRUE,warning=FALSE}
+
+resumenes2<-with(datos2,
+                  list("Edad del jefe de familia" = tab_summary(edad_jefe), 
+                       "Total de integrantes del hogar" = tab_summary(tot_integ), 
+                       "Gasto general (escala logarítmica)" = tab_summary(log(gasto_mon)), 
+                       "Ingreso (escala logarítmica)" = tab_summary(log(ing_cor)),
+                       "Gasto en vivienda (escala logarítmica)" = tab_summary(log(vivienda))))
+        
+descriptiva2<-summary_table(datos2,resumenes2)
+
+descriptiva2
+```
+
+## Análisis Univariado
+```{r,echo=FALSE,warning=FALSE, cache = TRUE,warning=FALSE} 
+
+ggplot(datos2,aes(x = 1, y = log(edad_jefe))) + geom_violin(alpha = 0.3) + geom_boxplot(width = 0.1,alpha = 0.3)  + labs(title = "Distribucion de las edades en la muestra", x = "densidad", y ="Logaritmo de la edad")
+
+```
+
+```{r,echo=FALSE,warning=FALSE, cache = TRUE,warning=FALSE}
+
+ggplot(datos2,aes(x = 1, y = log(gasto_mon))) + geom_violin(alpha = 0.3) + geom_boxplot(width = 0.1,alpha = 0.3)  + labs(title = "Distribucion del logaritmo del gasto", x = "densidad", y ="Logaritmo del gasto")
+```
+
+```{r,echo = FALSE,warning=FALSE, cache = TRUE,warning=FALSE}
+
+ggplot(datos2,aes(x = 1, y = log(ing_cor))) + geom_violin(alpha = 0.3) + geom_boxplot(width = 0.1,alpha = 0.3)  + labs(title = "Distribucion del logaritmo del ingreso", x = "densidad", y ="Logaritmo del ingreso")
+
+```
+
+```{r,echo = FALSE,warning=FALSE, cache = TRUE,warning=FALSE}
+integ1<-ggplot(datos2,aes(x = 1, y = tot_integ)) + 
+  geom_boxplot() + 
+    labs(x="",y="total de integrantes")
+
+integ2<-ggplot(datos2,aes(x = tot_integ)) + 
+  geom_histogram(binwidth = .5) + 
+    labs( x= "total de integrantes", y = "frecuencia")
+
+plot_grid(integ1,integ2,labels = "AUTO")
+
+```
+
+```{r,echo = FALSE, warning = FALSE, cache = TRUE,warning=FALSE}
+
+ggplot(datos2,aes(x = 1, y = log(vivienda))) + geom_violin(alpha = 0.3) + geom_boxplot(width = 0.1,alpha = 0.3)  + labs(title = "Distribucion del logaritmo del gasto en vivienda", x = "densidad", y ="Logaritmo del gasto en vivienda")
+```
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+ggplot(datos2,aes(x = as.factor(sexo_jefe), y = edad_jefe)) + 
+  geom_boxplot() + 
+    labs(title = "Diagrama de caja y brazos para la edad agrupado por Mujeres y Hombres", x = "Grupos", y = "Edad") + 
+      scale_x_discrete(labels = c("Mujer","Hombre")) 
+
+```
+
+```{r,echo = FALSE,warning=FALSE, cache = TRUE,warning=FALSE}
+blues<-brewer.pal(9,"Blues")
+blue_range<-colorRampPalette(blues)
+```
+
+## Análisis Multivariado
+```{r,echo = FALSE,warning=FALSE, cache = TRUE,warning=FALSE,message=FALSE}
+ggplot(datos2,aes(x = est_socio, fill = educa_jefe)) +
+  geom_bar(position = "fill") + 
+    facet_wrap(~sexo_jefe) +
+        labs(title = "Composicion del nivel educativo por estrato socio-economico por sexo", x = "Educacion", y = "Composicion",colour = "Estrato") + scale_fill_discrete(name = "nivel",labels=c("sin instruccion","primaria incompleta","primaria completa","secundaria incompleta","secundaria completa","preparatoria incompleta","preparatoria completa","profesional incompleta","profesional completa","posgrado"))
+
+```
+
+```{r,echo = FALSE,warning=FALSE, cache = TRUE,warning=FALSE}
+ggplot(datos2,aes(x = est_socio, fill = sexo_jefe )) + 
+  geom_bar(color = "black",position = "dodge") + 
+    theme(axis.text.x = element_text(angle = 90)) + 
+      labs(title = "Estrato socio-economico del jefe de familia por sexo", x= "Estrato socio-economico", y = "Ocurrencias")  + 
+      scale_fill_discrete(name = "Sexo",labels = c("Mujer","Hombre")) 
+
+```
+
+```{r,echo = FALSE,warning=FALSE, cache = TRUE,warning=FALSE}
+ggplot(datos2,aes(  x = sexo_jefe ,fill = educa_jefe)) +
+  geom_bar(colour = "black",position = "dodge" )   + 
+  labs(title = "Histograma del grado de educacion por sexo", x = "Nivel de educacion", y = "Frecuencia")  + 
+      scale_fill_discrete(name = "Nivel",labels = c("sin instruccion","preescolar","primaria incompleta","primaria completa","secundaria incompleta","secundaria completa","preparatoria incompleta","preparatoria completa","profesional incompleta","profesional completa","posgrado")) 
+```
+
+
+### Relaciones entre regresores y variable explicada
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+cor_ing_viv<-cor(log(datos2$ing_cor),log(datos2$vivienda))
+cor_gas_viv<-cor(log(datos2$gasto_mon),log(datos2$vivienda))
+cor_edad_viv<-cor(log(datos2$edad_jefe),log(datos2$vivienda))
+```
+
+#### Diagramas de relación lineal
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+
+ggplot(datos2,aes(x = log(ing_cor), y = log(vivienda))) +
+  geom_point() +
+    geom_smooth(method = "lm",se = FALSE) +  
+      annotate(geom = "text",x = 8,y = 9,label = "p = 0.4517746",col = "red") + 
+        labs(title = "Relacion entre el logaritmo del ingreso y el logaritmo del gasto en vivienda", x = "logaritmo del ingreso", y= "logaritmo del gasto en vivienda" )
+
+```
+
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+ggplot(datos2,aes(x = log(gasto_mon) , y =log(vivienda))) +
+  geom_point() +
+    geom_smooth(method = "lm", se = FALSE) +
+       annotate(geom = "text",x = 8,y = 9,label = "p = 0.567273",col = "red") +
+          labs(title = "Relación entre el logaritmo del gasto general y el logaritmo del gasto en vivienda", x = "logaritmo del gasto", y= "logaritmo del gasto en vivienda" )
+```
+
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+ggplot(datos2,aes(x = edad_jefe, y = log(vivienda))) + 
+  geom_jitter() + 
+    geom_smooth(method = "lm", se = FALSE) + 
+      annotate(geom = "text",x = 90,y = 9,label = "p = -0.1222487",col = "red") +
+        labs(title ="Relacion entre la edad y el logaritmo del gasto en vivienda", x = "edad", y = "logaritmo del gasto en vivienda")
+```
+
+
+#### Distribución del gasto en vivienda agrupado por sexo
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+ggplot(datos2,aes(x = sexo_jefe, y = log(vivienda))) + 
+  geom_boxplot() + 
+    labs(title = "Relación entre el sexo y el gasto en vivienda",x = "sexo", y ="logaritmo del gasto en vivienda") + 
+  scale_x_discrete(labels = c("Mujer","Hombre"))
+
+
+```
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+ggplot(datos2,aes(x = log(vivienda) , fill = sexo_jefe)) +
+  geom_density(alpha = 0.3) + 
+      labs(title = "Densidad del gasto en vivienda por sexo",x = " logaritmo del gasto en vivienda", y= "densidad" ) + 
+  scale_fill_discrete(name = "Sexo", labels = c("Mujer","Hombre"))
+```
+ 
+
+#### Distribución del gasto en vivienda agrupado por total de integrantes del hogar
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+ggplot(datos2,aes(x = factor(tot_integ), y = log(vivienda))) + 
+  geom_boxplot() + 
+        labs(title = "Relación entre integrantes del hogar y logaritmo del gasto en vivienda",x = "total de integrantes del hogar", y = "gasto en vivienda")
+
+
+
+```
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+
+ggplot(datos2,aes(x = log(vivienda), fill = factor(tot_integ))) + 
+  geom_density(alpha = 0.3) + 
+    labs(title = "Densidad del gasto en vivienda por integrantes del hogar",x = "logaritmo del gasto en vivienda", y = "densidad", color = "total de integrantes") + scale_fill_discrete(name = "Total de integrantes")
+
+```
+
+
+#### Distribución del gasto en vivienda agrupado por nivel educativo del jefe de familia
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+
+ggplot(datos2,aes(x = educa_jefe, y = log(vivienda))) + 
+  geom_boxplot() +
+        labs(title = "Relación entre el nivel educativo y el gasto en vivienda",x = "nivel educativo", y = "gasto en vivienda") + scale_x_discrete(labels = c("sin instruccion","primaria incompleta","primaria completa","secundaria incompleta","secundaria completa","preparatoria incompleta","preparatoria completa","profesional incompleta","profesional completa","posgrado")) + 
+    theme(axis.text.x = element_text(angle = 90))  
+
+```
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE }
+ggplot(datos2,aes(x = log(vivienda),fill = educa_jefe)) + 
+  geom_density(alpha = 0.3) + 
+    labs(title="Densidad del gasto en vivienda por nivel educativo" ,x = "logaritmo del gasto en vivienda", colour = "nivel educativo") + scale_fill_discrete(name ="nivel educativo",labels = c("sin instruccion","primaria incompleta","primaria completa","secundaria incompleta","secundaria completa","preparatoria incompleta","preparatoria completa","profesional incompleta","profesional completa","posgrado"))
+
+```
+
+
+#### Distribución del gasto en vivienda agrupado por estrato socio-económico
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+
+ggplot(datos2,aes(x = est_socio, y = log(vivienda))) + 
+  geom_boxplot() +
+        labs(title = "Relación entre el estrato socio-económico y el gasto en vivienda",x = "estrato socio económico", y = "gasto en vivienda") + scale_x_discrete(labels = c("Bajo","Medio-Bajo","Medio-Alto","Alto"))
+
+
+```
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+ggplot(datos2,aes(x = log(vivienda),fill = est_socio)) +
+  geom_density(alpha = 0.3) + 
+    labs(title = "Densidad del gasto en vivienda por estrato socio-económico",x = "gasto en vivienda", y = "densidad",color = "estrato") + scale_fill_discrete(name = "Estrato socio-económico", labels = c("Bajo","Medio-Bajo","Medio-Alto","Alto"))
+
+```
+
+
+## Conclusiones del análisis exploratorio de datos
+* Todas las variables numéricas en escala logarítmica que componen el estudio presentan evidencia de ser distribuidas de forma unimodal y simétrica. 
+* Existen mas hombres jefes de familia que mujeres
+* Los hombres asumen la jefatura de la familia a edades menores
+* El estrato socio económico mas común al que pertenecen las familias mexicanas es el de Medio-Bajo sin distinción en el sexo del jefe de familia.
+* El nivel de instrucción formal mas común de un jefe de familia perteneciente al sexo masculino es el de secundaria completa. En caso de que el jefe de familia pertenezca al sexo femenino el grado de instrucción mas comun es el de primaria completa. 
+* Mas del 50% de las personas en el estrato socio-económico bajo tienen instruccion formal entre "sin instrucción" y "primaria completa". 
+* Mas del 50% de la personas en el estrato socio económico alto tienen estudios de  entre profesional completa y posgrado
+* La relación entre el logaritmo del ingreso y el logaritmo del gasto en vivienda es lineal, positiva y moderadamente correlacionada.
+* La relación entre el logaritmo del gasto general y el logaritmo del gasto en vivienda es lineal, positivo y moderadamente correlacionado.
+* La relación entre la edad y el logaritmo del gasto en vivienda es lineal, negativa y debilmente correlacionada. 
+* No hay evidencia de existir relación alguna entre el gasto en vivienda y los integrantes del hogar.
+* No hay evidencia de la existencia de relación alguna entre el gasto en vivienda y el nivel educativo del jefe de familia
+* Existe evidencia suficiente que apoye la relación positiva entre el gasto en vivienda y el estrato socio-económico al que pertenece una familia mexicana. 
+
+# Modelo econométrico
+El modelo econométrico que propongo es un modelo lineal generalizado, cuya variable respuesta se encuentra en escala logaritmica y que puede ser descrito con la siguiente ecuación :  
+$$\ln(y) = \beta_{0} + \beta_{1}x_{1} + \beta_{2}x_{2} + \beta_{3}x_{3} + \beta_{4}x_{4} + \beta_{5}x_{5} +  \beta_{6}x_{6} + \beta_{7}x_{7} + \epsilon $$
+
+Donde:  
+$\ x_{1}$ Es esl gasto general trimestral reportado por la unidad de observación medido en escala logaritmica.  
+$\ x_{2}$ Es la edad del jefe de familia.  
+$\ x_{3}$ Es la edad del jefe de familia al cuadrado.  
+$\ x_{4}$ Es que el sexo del jefe de familia es masculino.  
+$\ x_{5}$ La unidad de análisis pertenece al estrato socio ecónomico 2.  
+$\ x_{6}$ La unidad de análisis pertenece al estrato socio económico 3.  
+$\ x_{7}$ La unidad de análisis pertenece al estrato socio económico 4.  
+
+## Resultados del modelo de regresión
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+fitb<-lm(log(vivienda) ~ log(gasto_mon) + edad_jefe + I(edad_jefe^2) +  sexo_jefe + est_socio,datos2)
+summary(fitb)
+```
+
+```{r,echo  = FALSE, cache = TRUE,warning=FALSE}
+#Tabla de Anova
+tabla_anova<-anova(fitb)
+tabla_anova
+```
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+confint(fitb,level = 0.95)
+```
+
+### Interpretación de los resultados de regresión
+
+Después de ajustar el modelo con los regresores propuestos, podemos escribir la ecuación de regresión como:  
+
+$$\ \hat{ln(y)} = 1.336 + 0.6602x_{2} - 0.04155x_{2} + 0.0003897x_{3} -0.255x_{4} + 0.5864x_{5} + 0.8707x_{6} + 1.133x_{7}$$
+
+El P-value de la prueba F de significancia global del modelo esta por debajo del $\alpha$ = 0.05 (número que, generalmente se utiliza para evaluar la significancia de pruebas estadísticas), recordemos que la hipótesis a contrastar en la prueba de significancia global son
+$$ \ H_{0} : \beta_{1} = \beta_{2} = \cdots = \beta_{7} = 0 \hspace{0.5cm}vs.\hspace{0.5cm} H_{1} : \exists \hspace{0.3cm}   \beta_{i} \neq 0 \hspace{0.3cm} \ p.a  \hspace{0.3cm} \ i \hspace{0.3cm} \epsilon  \hspace{0.3cm} \{1,2,\dots,7\} $$
+Del resultado de la prueba, rechazo la hipótesis nula, por lo que alguno de los coeficientes del modelo es distinto de cero, y por lo tanto el modelo es globalmente significativo.  
+
+El P-value de las pruebas t de significancia individual de todos los parámetros esta por debajo del $\alpha = 0.05$ ,por lo que rechazo la hipótesis nula, recordemos que las hipótesis a contrastar de la prueba t de significancia indivual es : 
+$$ \ H_{0}:\frac{\hat{\beta_{j}}}{S(\beta_{j})} = 0 \hspace{0.5cm} vs \hspace{0.5cm} H_{1} : \frac{\hat{\beta_{j}}}{S(\hat{\beta_{j}})} \neq 0$$ 
+Por lo que todas las variables incluidas en el modelo tienen algún efecto (**Caeteris Paribus**) sobre el gasto en vivienda que no es debido solamente al azar de tal forma que son estadísticamente significativas.   
+
+Puedo decir que, de acuerdo a la medida de bondad de ajuste $\ R^{2}$ ajustado  que 41% de la desviacion del modelo base es directamente imputable a la existencia de correlación de la variable explicada con los regresores.  
+
+El modelo base es aquel donde solo se tienen en cuenta los efectos capturados por el intercepto al origen ($\hat{\beta_{0}}$), es decir, cuando el resto de las $ \ x_{i} $ se mantienen en 0.  
+
+Las unidades observacionales que no cumplen explícitamenente alguna de las características de las variables categóricas(por ejemplo, que el sexo del jefe de familia sea femenino, o que la familia pertenezca al estrato socio-económico 1) son efectos capturados en el modelo base  
+
+
+
+## Análisis de residuales
+El análisis de residuales es una herramienta que me ayudará a comprobar los supuestos que todo modelo de regresión lineal multiple (**RLM**) debe cumplir, esto para saber que la inferencia sobre los parámetros del modelo es correcta y confiable. 
+Los supuestos de **RLM** son:  
+
+1. **Linealidad en los parámetros** 
+El modelo poblacional puede ser escrito como :   
+$$\ y = \beta_{0} + \beta_{1}x_{1} + \beta_{2}x_{2} + \dots + \beta_{k}x_{k} + \epsilon  $$
+
+2. **Muestro aleatorio **
+Significa que tenemos un a muestra de n observaciones de las variables $\{x_{i1},x_{i} \dots x_{ik},y| \ i = 1,2 \dots,n \} $ 
+que siguen el modelo poblacional del supuesto 1.
+
+3. **No existencia de multicolinealidad perfecta** : Ninguna de las columnas de la matriz $\ X$ (la matriz de diseno) es combinacion lineal del resto de las columnas, esto es: 
+ $$ \ |(X^{T}X)^{-1}| > 0 $$
+ Esto se pide para que sea posible calcular los estimadores de los coeficientes de regresión, sin embargo, la **Multicolinealidad imperfecta**  que es: 
+ $$ \ |(X^{T}X)^{-1}| \approx 0 $$
+que se presenta cuando existe una alta correlación entre variables tambien representa un grave error en un modelo, ya que se "inflan" los errores estándar de los estimadores, lo cual genera una impresición y "ensanchamiento" de los intervalos de confianza.  
+
+
+
+4. **Esperanza condicional de los errores es 0**
+Esto es
+$$ \ E[\epsilon|x_{1},x_{2},\dots,x_{k}] = 0 $$
+Este supuesto asegura que los estimadores de los efectos ceteris paribus sean insesgados 
+
+5. **Homocedasticidad condicional** : La varianza de los errores, dados los parámetros es constante, i.e:  
+
+$$ \ Var(\epsilon_{i}|X) = \sigma_{\epsilon}^{2} $$
+
+6. **Normalidad multivariada** : Los errores poblacionales son independientes de las variables explicativas $ \ x_{1},x_{2},\dots,x_{k} $ y se distribuyen normal con media 0 y varianza constante, i.e: 
+
+$$ \epsilon  \sim {\sf }N(0,\sigma_{\epsilon}^{2}) $$
+
+Esto es para que los estimadores de los coeficientes de regresión sean eficientes (de mínima varianza) y que los intervalos de confianza sean exactos.  
+
+
+###Tests gráficos para comprobar los supuestos de regresión lineal múltiple
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+resultados_fit<-augment(fitb)
+resultados_fit<-resultados_fit%>% mutate(count = 1:n_muest)
+resultados_fit<-tbl_df(resultados_fit)
+```
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+ggplot(resultados_fit,aes(x = .fitted, y = .resid)) + 
+  geom_point() + 
+    geom_smooth(method = "loess",se = FALSE) + 
+      geom_hline(aes(yintercept = 0,col = "red")) +
+        labs(title = "Gráfica de residuos contra valores ajustados", x = "valores ajustados", y = "residuos") 
+
+```
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+ggplot(resultados_fit,aes(sample = .std.resid )) +
+  stat_qq() + 
+    stat_qq_line() +
+      labs(title = "Q-Q plot de los residuos estandarizados", x = "cuantiles teoricos", y = "cuantiles muestrales")
+ 
+```
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+ggplot(resultados_fit,aes(.fitted,sqrt(abs(.std.resid)))) + 
+  geom_point() + 
+    stat_smooth(method  = "loess") + 
+      labs(title = "Grafico de Escala-Locacion", y = expression(sqrt("|Residuos estandarizados|")),x = "Valores Ajustados")
+
+```
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+ggplot(resultados_fit,aes(x = .hat,y = .std.resid)) +
+  geom_point(aes(size = .cooksd),alpha = 0.3) +
+    stat_smooth(method = "loess") + 
+      labs(title = "Residuos vs. Leverage", x = "Leverage", y = "Residuos") 
+
+```
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+ggplot(resultados_fit,aes(x = count, y = .hat)) + 
+  geom_point() +
+    geom_hline(yintercept = mean(resultados_fit$.hat),col = "blue") + 
+      geom_hline(yintercept = 3*mean(resultados_fit$.hat),col = "red") +
+        labs(title = "Valores de la matriz proyeccion vs indice", x = "índice" , y = "Valores de la matriz proyección")
+  
+```
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+ggplot(resultados_fit,aes(x= .std.resid)) + 
+  geom_histogram(binwidth = .15) + 
+      labs(title = "Histograma de los residuos estándar", x = "valores de los residuos estandarizados", y = "ocurrencias")
+
+```
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+ggplot(resultados_fit,aes(x = count,y = .std.resid)) +
+  geom_line() + 
+    geom_hline(aes(yintercept = 0,col ="red")) + 
+       geom_hline(aes(yintercept = 3,col ="red")) + 
+         geom_hline(aes(yintercept = -3,col ="red")) + 
+          labs(title="Diagrama de dispersión de los residuos estandarizados",x = "posición del residuo", y = "valor del residuo")
+
+```
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+ggplot(resultados_fit,aes(x = count, y = .cooksd)) + 
+  geom_point() + geom_segment(aes(x = count,xend = count, y = 0 ,yend = .cooksd)) + 
+  geom_hline(yintercept = 4*mean(resultados_fit$.cooksd),col = "red") + 
+    labs(title = "Gráfico de la Distancia de cook", x = "índice", y ="distancia")
+```
+
+### Tests estadísticos para comprobar las hipótesis de regresión lineal múltiple
+
+
+Quiero comprobar que la esperanza de los residuos sea 0 , por lo que haré el siguiente contraste de hipotesis con una prueba t 
+$$ \ H_{0} : E(\epsilon|X) = 0 \hspace{0.5cm} vs \hspace{0.5cm} H_{1}: E(\epsilon|X) \neq 0 $$
+
+```{r,echo=FALSE, cache = TRUE,warning=FALSE}
+
+miu0<-0
+xbar<-mean(fitb$residuals)
+s<-sd(fitb$residuals)
+t<-(xbar - miu0)/(s/sqrt(n_muest))
+pval<-2 * pt(t,n_muest - 1 )
+pval
+```
+
+Como el P-value es mayor que el valor de significancia $\alpha = 0.05$ no rechazo la hipótesis nula de que los residuos tienen valor esperado 0.
+
+Aplico la prueba de Durbin-Watson para detectar si el coeficiente de correlación es 0 o distinto de cero, esto para verificar la evidencia de independencia entre los residuos, sus hipotesis son : 
+ 
+$$ \ H_{0} : \rho(i,i+1) = 0 \hspace{0.5cm} vs \hspace{0.5cm} H_{1}: \rho(i,i+1) \neq 0 $$
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+durbinWatsonTest(fitb)
+```
+Como el P-value es mayor que el valor 
+$\alpha = 0.05$  entonces no rechazo la hipótesis nula de que el coeficiente de correlación es 0.
+
+Aplico la prueba de Breusch-Pagan, cuyas hipótesis a contrastar son : La varianza de los residuos es constante vs. la varianza de los residuos es una función de los valores ajustados del modelo. Esto es para verificar la homocedasticidad. 
+$$ \ H_{0}: Var(\hat{\epsilon} |X) = \sigma_{\epsilon}^{2} \hspace{0.5cm} vs \hspace{0.5cm} H_{1}: Var(\hat{\epsilon} |X) =  \sigma_{\epsilon}^{2}( \hat{Y}) $$
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+bptest(fitb)
+```
+
+Como el P-value es mayor que 
+$\alpha = 0.05$ , por lo tanto no rechazo la hipotesis nula de una varianza constante.
+
+Tambien proveo el resultado de la prueba de Goldfeld-Quandt, cuyas hipótesis son: 
+La varianza es igual en un primer grupo de residuos que en un segundo grupo de residuos vs, la varianza en el primer grupo de residuo es es menor que la varianza en un segundo grupo (es decir, la varianza aumenta conforme crecen los valores ajustados del modelo)
+h
+$$ \ H_{0}: \sigma_{\epsilon_{1}}^{2} = \sigma_{\epsilon_{2}}^{2} \hspace{0.5cm} vs   \hspace{0.5cm} H_{1}: \sigma_{\epsilon_{1}}^{2} < \sigma_{\epsilon_{2}}^{2}$$
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+gqtest(fitb,order.by = ~ vivienda,data = datos2)
+
+```
+Como el P-value es mayor que el valor de significancia $\alpha = 0.05$ entonces  no rechazo la hipótesis nula de que la varianza es igual en ambos segmentos 
+
+Proveo tambien el resultado de la prueba de Kolmogorov-Smirnov, cuyas hipótesis a contrastar son : 
+
+$$ H_{0}: \frac{\hat{\epsilon}}{\sqrt{S^{2}(1-h_{i})}} \sim N(0,1) \hspace{0.5cm} vs \hspace{0.5cm} \frac{\hat{\epsilon}}{\sqrt{S^{2}(1-h_{i})}} \nsim N(0,1) \hspace{0.5cm}  $$
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+ks.test(resultados_fit$.std.resid,"pnorm")
+```
+
+Como el P-value es mayor que el valor de significancia $\alpha = 0.05$ entonces  no rechazo la hipotesis nula de que los residuos estandarizados se distribuyan normal con parametros de media 0 y varianza 1.
+
+La identificación de la multicolinealidad no se puede hacer de forma tradicional en este modelo, ya que se incluye un termino cuadrático (la edad del jefe de familia al cuadrado) como regresor, por lo cual, para proveer evidencia de que no existe multicolinealidad entre los regresores, cree un modelo de regresion auxiliar donde excluyo el termino cuadrático. A continuación presento los factores de inflacion de varianza (FIV) de esa regresion auxiliar.
+
+Recordemos que los FIV se calculan en dos pasos, primero se crean i distintas regresiones por el método de mínimos cuadrados cuya variable explicada es $\ x_{i}$ y los regresores son el resto de las variables, es decir
+
+$$ \ x_{i} = \alpha_{0} + \alpha_{1}x_{1} + \dots + \alpha_{k}x_{k} + \epsilon $$
+Despues se calcula el FIV para cada coeficiente $\hat{\beta_{i}}$ del modelo de regresión original (En nuestro caso es el modelo que no incluye el termino cuadrático)
+$$ \ FIV_{i} = \frac{1}{1-R^{2}_{i}} $$
+Donde $\ R_{i}^{2}$ es el coeficiente de determinacion de la regresion cuya variable explicada es $\ x_{i}$ y sus regresores son el resto de las k variables explicativas.
+
+Por lo general se dice que una variable aporta multicolinealidad al modelo si $\ FIV(\hat{\beta_{i}}) > 10$ lo cual claramente no ocurre entre los regresores, por lo que podemos descartar la existencia de multicolinealidad ya que no existe evidencia suficiente en pro de esta. 
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+fitaux<-lm(log(vivienda) ~ log(gasto_mon) + edad_jefe  +  sexo_jefe + est_socio,datos2)
+var_inf<-vif(fitaux)
+var_inf 
+```
+
+### Identificación de los valores extremos e influyentes
+A continuación presento una tabla cuyos metricas de residuo estandar y distancia de cook son aparentemente mas grandes que el resto (residuo estandar > 3 & distancia de cook > 4 veces el promedio de la distancia de cook de los residuos), esto por que son potenciales observaciones extremas que requieren mayor análisis. 
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+outliers<-resultados_fit%>%select("count",".std.resid",".cooksd")%>%filter(abs(.std.resid)>3 & .cooksd > 4*mean(.cooksd))
+pos_outliers<-outliers$count%>%unlist()
+n_pos_outliers<-length(pos_outliers)
+dummy<-matrix(0,n_muest,n_pos_outliers)
+for(i in 1:n_pos_outliers){
+  dummy[pos_outliers[i],i]<-1
+  
+}
+
+kable(outliers,caption = "Tabla de los valores influyentes")
+
+```
+
+# Interpretación económica del modelo
+
+Segun los resultados del estudio, y manteniendo todo lo demas constante (**Ceteris Paribus**) :  
+
+
+* Un incremento de un punto porcentual en el gasto, repercute en un incremento porcentual del 0.6602% en el gasto en vivienda, por la especificacion del modelo, este tiene una interpretación de elasticidad con respecto a esta variable. 
+
+* Un incremento en una unidad de edad del jefe de familia representa un detrimento del 4.155% en el gasto en vivienda, pero ya que anadí el termino cuadrático a la forma funcional del modelo tambien significa un incremento del .03987% en el gasto en vivienda, esta relación proviene de los rendimientos marginales decrecientes proporcionados por la edad. 
+
+* El hecho de que el jefe de familia pertenezca al sexo masculino se puede traducir en un detrimento del gasto en vivienda de 25.54%.
+
+* Al pertenecer al estrato socio economico Medio-Bajo el hogar gasta 58.64% en vivienda mas en vivienda que las familias que pertenecen al estrato socio-económico Bajo. 
+
+* Al pertenecer al estrato socio-económico Medio-Alto la unidad de observacion gasta un 87.07% mas en vivienda que las familias que pertenecen al estrato socio-económico Bajo. 
+
+* Al pertenecer al estrato socio-económico Alto, la unidad la familia gasta un 113.3% mas en vivienda que las familias que pertenecen al estrato socio-económico Bajo. 
+
+* Para realizar predicciones sobre el gasto en vivienda de una familia mexicana, es conveniente regresar a la unidad original, es decir expresar la esperanza de Y en pesos en vez de en logaritmos, esto lo logramos exponenciando la ecuacion del modelo de ambos lados, de lo cual resulta la siguiente ecuación. 
+
+$$ \ E[Y| X] = e^{1.336 + 0.6602x_{2} - 0.04155x_{2} + 0.0003897x_{3} -0.255x_{4} + 0.5864x_{5} + 0.8707x_{6} + 1.133x_{7}}  $$
+
+# Evaluación predictiva del modelo
+Para esta etapa de la investigación seleccioné otra muestra aleatoria de tamaño 200, eliminé las observaciones que ya se habian incluido en la muestra aleatoria original (los datos de entrenamiento) todo esto con la finalidad conformar un conjunto de datos de prueba.
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+set.seed(2)
+test<-sample(1:n,size = 200,replace = FALSE)
+test<-test[!test%in%muestra]
+datos_test<-datos[test,]
+datos_test<-datos_test%>%filter(log(vivienda)>0)
+gasto_viv_pred<-predict(fitb,datos_test)
+```
+
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+actuals_preds<-data.frame(cbind(actuals = log(datos_test$vivienda),predicted = gasto_viv_pred))
+kable(head(actuals_preds,n=10),caption = "Tabla que recoje algunos de los valores exactos vs. los valores predichos por el modelo")
+```
+
+Una medida simple para evaluar el poder predictivo del modelo es el coeficiente del correlacion lineal de Pearson, definido como: 
+
+$$ \ r_{xy}(X,Y) =\frac{\ \sum_{i=1}^{n}x_{i}y_{i} - \sum_{i = 1}^{n}x_{i} \sum_{i = 1}^{n}y_{i}} {\sqrt{\sum_{i = 1}^{n}(x_{i}- \bar{x})^{2}}\sqrt{\sum_{i = 1}^{n}(y_{i}- \bar{y})^{2}}} $$
+El cual es de: 
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+correlation_accuracy<-cor(actuals_preds)
+correlation_accuracy[1,2]
+```
+
+Este resultado entre mas cercano a 1 es mejor.
+
+Una segunda medida que proveo es la exactitud Min-Max, que se calcula como:
+$$ \ media(\frac{min\{actuales,predichos\} }{max\{actuales,predichos\}}  ) $$
+y cuyo resultado para el modelo es: 
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+min_max_accuracy<-mean(apply(actuals_preds, 1, min)/apply(actuals_preds,1,max))
+min_max_accuracy
+
+
+```
+Este número, que se encuentra entre 0 y 1, entre mas alto significa mayor precisión del modelo, en este caso la precisión max-min es del 90%.
+
+
+Tambien exploro una medida conocida como la media del porcentaje de error absoluto calculado como 
+
+$$ \ MPEA = media(\frac{abs\{predichos-actuales\}}{actuales}) $$
+```{r,echo = FALSE, cache = TRUE,warning=FALSE}
+
+mape<-mean((abs(actuals_preds$predicted - actuals_preds$actuals)) /actuals_preds$actuals)
+mape
+
+```
+Este número,que se encuentra entre 0 y 1, nos dice que el el MAPE del modelo es de aproximadamente 10%. Este número entre más bajo mejor, significa la desviación absoluta promedio entre valores predichos y actuales.
+
+
+
+

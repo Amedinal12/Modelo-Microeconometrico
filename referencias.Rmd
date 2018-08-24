@@ -1,0 +1,8 @@
+
+`r if (knitr::is_html_output()) '# Referencias '`
+
+[@Wooldridge2002]
+[@Editors2009]
+[@Champernowne1972]
+[@Learning]
+[@Farnsworth2008]
